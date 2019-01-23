@@ -13,49 +13,48 @@ class HypercoreByteStream extends Readable {
     this._range = null
     this._offset = 0
     this._opened = false
+    this._resume = false
     this._ended = false
     this._downloaded = false
 
     feed.on('close', this._cleanup.bind(this))
     feed.on('end', this._cleanup.bind(this))
-
-    this.setRange({})
   }
 
-  setRange ({ start, end, byteOffset, length}) {
+  setRange ({ blockOffset, blockLength, byteOffset, byteLength} = {}) {
     assert(!this._opened, 'Cannot call setRange multiple after streaming has started.')
-    assert(!start || start >= 0, 'start must be >= 0')
-    assert(!end || end >= 0, 'end must be >= 0')
-    assert(!length || length >= -1, 'length must be a positive integer or -1')
-    if (start && end) {
-      assert(start <= end, 'start must be <= end')
-    }
+    assert(!blockOffset || blockOffset >= 0, 'start must be >= 0')
+    assert(!blockLength || blockLength >= 0, 'end must be >= 0')
+    assert(!byteLength || byteLength >= -1, 'length must be a positive integer or -1')
     this._range = {
-      start: start || 0,
-      end: end || +Infinity,
+      start: blockOffset || 0,
+      end: (blockOffset && blockLength) ? blockOffset + blockLength : +Infinity,
       byteOffset: byteOffset || 0,
-      length: (length !== undefined) ? length : -1
+      length: (byteLength !== undefined) ? byteLength : -1
+    }
+    if (this._resume) {
+      return this._read(0)
     }
   }
 
-  _open (cb) {
+  _open (size) {
     let self = this
     let missing = 1
     let downloaded = false
 
     this._opened =  true
     this.feed.ready(err => {
-      if (err) return this.destroy(err)
+      if (err || this.destroyed) return this.destroy(err)
       this.open = true
       this.feed.seek(this._range.byteOffset, this._range, onstart)
     })
 
     function onend (err, index) {
-      if (err || !self._downloadRange) return
+      if (err || !self._range) return
       if (self._ended || self.destroyed) return
 
       missing++
-      self.feed.undownload(self._downloadRange)
+      self.feed.undownload(self._range)
       self._range = { 
         ...self._range,
         ...self.feed.download({
@@ -64,11 +63,13 @@ class HypercoreByteStream extends Readable {
           linear: true
         }, ondownload)
       }
+
+      self._read(size)
     }
 
     function onstart (err, index, off) {
       if (err) return cb(err)
-      if (self._ended || self.feed.destroyed) return
+      if (self._ended || self.destroyed) return
 
       self._range.start = index
       self._offset = off
@@ -83,9 +84,9 @@ class HypercoreByteStream extends Readable {
 
       if (self._range.length > -1) {
         self.feed.seek(self._range.byteOffset + self._range.length, self._range, onend)
+      } else {
+        self._read(size)
       }
-
-      return cb(null)
     }
 
     function ondownload (err) {
@@ -109,21 +110,24 @@ class HypercoreByteStream extends Readable {
   }
 
   _read (size) {
-    if (this._ended) return this.push(null)
-    if (!this._opened) {
-      this._open(err => {
-        if (err) return this.destroy(err)
-        return this._read(size)
-      })
+    if (!this._range) {
+      this._resume = true
       return
+    } else if (this._resume) {
+      this._resume = false
     }
 
-    if (this._range.start === this._range.end || this._range.length === 0) {
+    if (this._ended) return this.push(null)
+    if (!this._opened) {
+      return this._open(size)
+    }
+
+    if (this._range.start > this._range.end || this._range.length === 0) {
       return this.push(null)
     }
 
     this.feed.get(this._range.start++, { wait: !this._downloaded }, (err, data) => {
-      if (err) return this.destroy(err)
+      if (err || this.destroyed) return this.destroy(err)
       if (this._offset) data = data.slice(offset)
       this._offset = 0
       if (this._range.length > -1) {

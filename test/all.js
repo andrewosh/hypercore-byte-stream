@@ -24,6 +24,7 @@ test('stream entire feed', t => {
     let combined = Buffer.concat(records, 1000)
 
     let stream = createStream(core)
+    stream.setRange()
 
     let offset = 0
     stream.on('data', data => {
@@ -67,7 +68,7 @@ test('stream with byteOffset, length, no bounds', t => {
     let stream = createStream(core)
     stream.setRange({
       byteOffset: 500,
-      length: 50
+      byteLength: 50
     })
 
     let offset = 0
@@ -91,8 +92,8 @@ test('stream with byteOffset, length, start bound', t => {
     let stream = createStream(core)
     stream.setRange({
       byteOffset: 500,
-      length: 50,
-      start: 4
+      byteLength: 50,
+      blockOffset: 4
     })
 
     let offset = 0
@@ -116,9 +117,9 @@ test('stream with byteOffset, length, start and end bounds', t => {
     let stream = createStream(core)
     stream.setRange({
       byteOffset: 500,
-      length: 50,
-      start: 7,
-      end: 8
+      byteLength: 50,
+      blockOffset: 7,
+      blockLength: 1
     })
 
     let offset = 0
@@ -139,7 +140,7 @@ test('cannot call setRange after streaming\'s started', t => {
     t.error(err, 'create hypercore ok')
     let stream = createStream(core)
     stream.setRange({
-      start: 2
+      blockOffset: 2
     })
     stream.once('data', data => {
       try {
@@ -150,6 +151,9 @@ test('cannot call setRange after streaming\'s started', t => {
       } catch (err) {
         t.true(err)
       }
+    })
+    stream.on('error', err => {
+      t.error(err)
     })
   })
 })
