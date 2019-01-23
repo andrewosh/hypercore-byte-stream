@@ -4,11 +4,11 @@ const { Readable } = require('stream')
 module.exports = (feed, opts) => new HypercoreByteStream(feed, opts)
 
 class HypercoreByteStream extends Readable {
-  constructor (feed, opts) {
+  constructor (opts) {
     super(opts)
     opts = opts || {}
 
-    this.feed = feed
+    this.feed = null
     this.inclusive = (opts.inclusive != undefined) ? opts.inclusive : false
     this._range = null
     this._offset = 0
@@ -17,15 +17,24 @@ class HypercoreByteStream extends Readable {
     this._ended = false
     this._downloaded = false
 
-    feed.on('close', this._cleanup.bind(this))
-    feed.on('end', this._cleanup.bind(this))
+    if (opts.feed) {
+      this.start(opts)
+    }
   }
 
-  setRange ({ blockOffset, blockLength, byteOffset, byteLength} = {}) {
-    assert(!this._opened, 'Cannot call setRange multiple after streaming has started.')
+  start ({ feed, blockOffset, blockLength, byteOffset, byteLength} = {}) {
+    assert(!this.feed, 'Can only provide options once (in the constructor, or asynchronously).')
+
+    assert(feed, 'Must provide a feed')
+    assert(!this._opened, 'Cannot call start multiple after streaming has started.')
     assert(!blockOffset || blockOffset >= 0, 'start must be >= 0')
     assert(!blockLength || blockLength >= 0, 'end must be >= 0')
     assert(!byteLength || byteLength >= -1, 'length must be a positive integer or -1')
+
+    this.feed = feed
+    feed.on('close', this._cleanup.bind(this))
+    feed.on('end', this._cleanup.bind(this))
+
     this._range = {
       start: blockOffset || 0,
       end: (blockOffset && blockLength) ? blockOffset + blockLength : -1,
@@ -54,7 +63,7 @@ class HypercoreByteStream extends Readable {
       if (self._ended || self.destroyed) return
 
       missing++
-      self.feed.undownload(self._range)
+      let old_range = { ...self._range }
       self._range = { 
         ...self._range,
         ...self.feed.download({
@@ -63,6 +72,7 @@ class HypercoreByteStream extends Readable {
           linear: true
         }, ondownload)
       }
+      self.feed.undownload(old_range)
 
       self._read(size)
     }
@@ -91,7 +101,7 @@ class HypercoreByteStream extends Readable {
 
     function ondownload (err) {
       if (--missing) return
-      if (err && !self._ended && !self._downloaded) feed.destroy(err)
+      if (err && !self._ended && !self._downloaded && err.code !== 'ECANCELED') self.destroy(err)
       else self._downloaded = true
     }
   }
