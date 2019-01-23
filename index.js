@@ -28,7 +28,7 @@ class HypercoreByteStream extends Readable {
     assert(!byteLength || byteLength >= -1, 'length must be a positive integer or -1')
     this._range = {
       start: blockOffset || 0,
-      end: (blockOffset && blockLength) ? blockOffset + blockLength : +Infinity,
+      end: (blockOffset && blockLength) ? blockOffset + blockLength : -1,
       byteOffset: byteOffset || 0,
       length: (byteLength !== undefined) ? byteLength : -1
     }
@@ -97,15 +97,15 @@ class HypercoreByteStream extends Readable {
   }
 
   _cleanup () {
-    if (self._range && self._opened) {
-      self.feed.undownload(self._range)
-      self._range = null
-      self._ended = true
+    if (this._range && this._opened) {
+      this.feed.undownload(this._range)
+      this._range = null
+      this._ended = true
     }
   }
 
   _destroy (err, cb) {
-    self._cleanup()
+    this._cleanup()
     return cb(err)
   }
 
@@ -122,7 +122,7 @@ class HypercoreByteStream extends Readable {
       return this._open(size)
     }
 
-    if (this._range.start > this._range.end || this._range.length === 0) {
+    if (this._range.end !== -1 && this._range.start > this._range.end || this._range.length === 0) {
       return this.push(null)
     }
 
