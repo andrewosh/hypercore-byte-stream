@@ -49,7 +49,6 @@ class HypercoreByteStream extends Readable {
   _open (size) {
     let self = this
     let missing = 1
-    let downloaded = false
 
     this._opened =  true
     this.feed.ready(err => {

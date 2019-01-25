@@ -119,6 +119,61 @@ module.exports = function (tag, create) {
     })
   })
 
+  test(`${tag}: stream with byteOffset, zero length, start and end bounds`, t => {
+    create(10, 100, (err, core, stream, records) => {
+      t.error(err, 'create stream ok')
+      let combined = Buffer.concat(records.slice(5), 500)
+
+      stream.start({
+        feed: core,
+        byteOffset: 500,
+        byteLength: 0,
+        blockOffset: 7,
+        blockLength: 1
+      })
+
+      let offset = 0
+      stream.on('data', data => {
+        t.fail('data should not be emitted')
+      })
+      stream.on('end',() => {
+        t.end()
+      })
+      stream.on('error', err => {
+        t.error(err)
+      })
+    })
+  })
+
+  test.only(`${tag}: stream with byteOffset, length larger than hypercore size`, t => {
+    create(10, 100, (err, core, stream, records) => {
+      t.error(err, 'create stream ok')
+      let combined = Buffer.concat(records.slice(5), 500)
+
+      stream.start({
+        feed: core,
+        byteOffset: 500,
+        byteLength: 700,
+      })
+
+      setTimeout(() => {
+        core.append(Buffer.allocUnsafe(1000).fill(8))
+      }, 1000)
+
+      let offset = 0
+      stream.on('data', data => {
+        t.same(data, combined.slice(offset, offset + data.length), 'chunks are the same') 
+        offset += data.length
+      })
+      stream.on('end',() => {
+        t.end()
+      })
+      stream.on('error', err => {
+        t.error(err)
+      })
+    })
+  })
+
   test(`${tag}: reads will be resumed after start`, t => {
     t.plan(2)
     create(10, 100, (err, core, stream, records) => {
