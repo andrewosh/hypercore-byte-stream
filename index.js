@@ -11,6 +11,7 @@ class HypercoreByteStream extends Readable {
     this.feed = null
     this.inclusive = (opts.inclusive != undefined) ? opts.inclusive : false
     this._range = null
+    this._downloadRange = null
     this._offset = 0
     this._opened = false
     this._resume = false
@@ -60,18 +61,20 @@ class HypercoreByteStream extends Readable {
     function onend (err, index) {
       if (err || !self._range) return
       if (self._ended || self.destroyed) return
-
       missing++
-      let old_range = { ...self._range }
+
+      self.feed.undownload(self._downloadRange)
+
+      self._downloadRange = self.feed.download({
+        start: self._range.start,
+        end: index,
+        linear: true
+      }, ondownload)
+
       self._range = { 
         ...self._range,
-        ...self.feed.download({
-          start: self._range.start,
-          end: index,
-          linear: true
-        }, ondownload)
+        ...self._downloadRange
       }
-      self.feed.undownload(old_range)
 
       self._read(size)
     }
@@ -83,12 +86,14 @@ class HypercoreByteStream extends Readable {
       self._range.start = index
       self._offset = off
 
+      self._downloadRange = self.feed.download({
+        ...self._range,
+        linear: true
+      }, ondownload)
+
       self._range = {
         ...self._range,
-        ...self.feed.download({
-          ...self._range,
-          linear: true
-        }, ondownload)
+        ...self._downloadRange
       }
 
       if (self._range.length > -1) {

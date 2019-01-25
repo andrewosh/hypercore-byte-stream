@@ -3,12 +3,12 @@ const test = require('tape')
 module.exports = function (tag, create) {
   test(`${tag}: stream entire feed`, t => {
     t.plan(1 + 10)
-    create(10, 100, (err, core, stream, records) => {
+    create(10, 100, (err, input, output, stream, records) => {
       t.error(err, 'create stream ok')
       let combined = Buffer.concat(records, 1000)
 
       stream.start({
-        feed: core
+        feed: output
       })
 
       let offset = 0
@@ -24,12 +24,12 @@ module.exports = function (tag, create) {
 
   test(`${tag}: stream with byteOffset, no length, no bounds`, t => {
     t.plan(1 + 8)
-    create(10, 100, (err, core, stream, records) => {
+    create(10, 100, (err, input, output, stream, records) => {
       t.error(err, 'create stream ok')
       let combined = Buffer.concat(records.slice(2), 800)
 
       stream.start({
-        feed: core,
+        feed: output,
         byteOffset: 200
       })
 
@@ -46,12 +46,12 @@ module.exports = function (tag, create) {
 
   test(`${tag}: stream with byteOffset, length, no bounds`, t => {
     t.plan(1 + 2)
-    create(10, 100, (err, core, stream, records) => {
+    create(10, 100, (err, input, output, stream, records) => {
       t.error(err, 'create stream ok')
       let combined = Buffer.concat(records.slice(5), 500)
 
       stream.start({
-        feed: core,
+        feed:  output,
         byteOffset: 500,
         byteLength: 50
       })
@@ -70,12 +70,12 @@ module.exports = function (tag, create) {
 
   test(`${tag}: stream with byteOffset, length, start bound`, t => {
     t.plan(1 + 2)
-    create(10, 100, (err, core, stream, records) => {
+    create(10, 100, (err, input, output, stream, records) => {
       t.error(err, 'create stream ok')
       let combined = Buffer.concat(records.slice(5), 500)
 
       stream.start({
-        feed: core,
+        feed: output,
         byteOffset: 500,
         byteLength: 50,
         blockOffset: 4
@@ -95,12 +95,12 @@ module.exports = function (tag, create) {
 
   test(`${tag}: stream with byteOffset, length, start and end bounds`, t => {
     t.plan(1 + 2)
-    create(10, 100, (err, core, stream, records) => {
+    create(10, 100, (err, input, output, stream, records) => {
       t.error(err, 'create stream ok')
       let combined = Buffer.concat(records.slice(5), 500)
 
       stream.start({
-        feed: core,
+        feed: output,
         byteOffset: 500,
         byteLength: 50,
         blockOffset: 7,
@@ -120,12 +120,12 @@ module.exports = function (tag, create) {
   })
 
   test(`${tag}: stream with byteOffset, zero length, start and end bounds`, t => {
-    create(10, 100, (err, core, stream, records) => {
+    create(10, 100, (err, input, output, stream, records) => {
       t.error(err, 'create stream ok')
       let combined = Buffer.concat(records.slice(5), 500)
 
       stream.start({
-        feed: core,
+        feed: output,
         byteOffset: 500,
         byteLength: 0,
         blockOffset: 7,
@@ -145,28 +145,30 @@ module.exports = function (tag, create) {
     })
   })
 
-  test.only(`${tag}: stream with byteOffset, length larger than hypercore size`, t => {
-    create(10, 100, (err, core, stream, records) => {
+  test(`${tag}: stream with byteOffset, length larger than hypercore size should wait`, t => {
+    create(10, 100, (err, input, output, stream, records) => {
       t.error(err, 'create stream ok')
       let combined = Buffer.concat(records.slice(5), 500)
 
       stream.start({
-        feed: core,
+        feed: output,
         byteOffset: 500,
         byteLength: 700,
       })
 
+      var newData = Buffer.allocUnsafe(1000).fill(8)
       setTimeout(() => {
-        core.append(Buffer.allocUnsafe(1000).fill(8))
-      }, 1000)
+        input.append(newData)
+      }, 100)
 
       let offset = 0
       stream.on('data', data => {
+        if (offset >= 500) {
+          t.same(data, newData.slice(0, data.length))
+          return t.end()
+        }
         t.same(data, combined.slice(offset, offset + data.length), 'chunks are the same') 
         offset += data.length
-      })
-      stream.on('end',() => {
-        t.end()
       })
       stream.on('error', err => {
         t.error(err)
@@ -176,7 +178,7 @@ module.exports = function (tag, create) {
 
   test(`${tag}: reads will be resumed after start`, t => {
     t.plan(2)
-    create(10, 100, (err, core, stream, records) => {
+    create(10, 100, (err, input, output, stream, records) => {
       t.error(err, 'create stream ok')
 
       stream.once('data', data => {
@@ -185,7 +187,7 @@ module.exports = function (tag, create) {
 
       setTimeout(() => {
         stream.start({
-          feed: core
+          feed: output
         })
       }, 100)
     })
@@ -194,11 +196,11 @@ module.exports = function (tag, create) {
 
   test(`${tag}: cannot call start after streaming\'s started`, t => {
     t.plan(2)
-    create(10, 100, (err, core, stream, records) => {
+    create(10, 100, (err, input, output, stream, records) => {
       t.error(err, 'create stream ok')
 
       stream.start({
-        feed: core,
+        feed: output,
         blockOffset: 2
       })
 
@@ -220,12 +222,12 @@ module.exports = function (tag, create) {
 
   test(`${tag}: destroy during read leads to cleanup`, t => {
     t.plan(1 + 5 + 3)
-    create(10, 100, (err, core, stream, records) => {
+    create(10, 100, (err, input, output, stream, records) => {
       t.error(err, 'create stream ok')
       let combined = Buffer.concat(records, 1000)
 
       stream.start({
-        feed: core
+        feed: output
       })
 
       let offset = 0

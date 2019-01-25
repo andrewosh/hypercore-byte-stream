@@ -15,7 +15,7 @@ function createLocal (numRecords, recordSize, cb) {
   core.append(records, err => {
     if (err) return cb(err)
     let stream = createStream()
-    return cb(null, core, stream, records)
+    return cb(null, core, core, stream, records)
   })
 }
 
@@ -37,7 +37,7 @@ function createRemote (numRecords, recordSize, cb) {
     s1.pipe(core2.replicate({ live: true })).pipe(s1)
 
     let stream = createStream()
-    return cb(null, core2, stream, records)
+    return cb(null, core1, core2, stream, records)
   })
 }
 
