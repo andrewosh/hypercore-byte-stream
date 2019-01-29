@@ -15,9 +15,9 @@ const hypercore = require('hypercore')
 const createByteStream = require('hypercore-byte-stream')
 
 let core = hypercore(ram)
-let stream = createByteStream(core)
-
-stream.start()
+let stream = createByteStream({
+  feed: core
+})
 ```
 
 ## API
