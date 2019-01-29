@@ -18,8 +18,6 @@ let core = hypercore(ram)
 let stream = createByteStream({
   feed: core
 })
-
-stream.start()
 ```
 
 ## API
