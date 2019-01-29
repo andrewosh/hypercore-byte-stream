@@ -9,7 +9,9 @@ class HypercoreByteStream extends Readable {
     opts = opts || {}
 
     this.feed = null
-    this.inclusive = (opts.inclusive != undefined) ? opts.inclusive : false
+    this.bytesRead = 0
+    this.pending = true
+
     this._range = null
     this._downloadRange = null
     this._offset = 0
@@ -42,6 +44,7 @@ class HypercoreByteStream extends Readable {
       byteOffset: byteOffset || 0,
       length: (byteLength !== undefined) ? byteLength : -1
     }
+
     if (this._resume) {
       return this._read(0)
     }
@@ -76,6 +79,7 @@ class HypercoreByteStream extends Readable {
         ...self._downloadRange
       }
 
+      self.pending = false
       self._read(size)
     }
 
@@ -97,8 +101,9 @@ class HypercoreByteStream extends Readable {
       }
 
       if (self._range.length > -1) {
-        self.feed.seek(self._range.byteOffset + self._range.length, self._range, onend)
+        self.feed.seek(self._range.byteOffset + self._range.length - 1, self._range, onend)
       } else {
+        self.pending = false
         self._read(size)
       }
     }
@@ -151,6 +156,7 @@ class HypercoreByteStream extends Readable {
       if (!data) {
         this._cleanup()
       }
+      this.bytesRead += data.length
       this.push(data)
     })
   }
