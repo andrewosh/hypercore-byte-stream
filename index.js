@@ -1,5 +1,5 @@
 const assert = require('assert')
-const { Readable } = require('stream')
+const { Readable } = require('readable-stream')
 
 module.exports = (feed, opts) => new HypercoreByteStream(feed, opts)
 

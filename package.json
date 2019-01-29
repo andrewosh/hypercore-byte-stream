@@ -25,5 +25,8 @@
     "hypercore": "^6.24.0",
     "random-access-memory": "^3.1.1",
     "tape": "^4.9.2"
+  },
+  "dependencies": {
+    "readable-stream": "^3.1.1"
   }
 }
