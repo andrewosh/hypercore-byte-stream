@@ -1,5 +1,6 @@
 const assert = require('assert')
 const { Readable } = require('readable-stream')
+const HypercoreByteCursor = require('hypercore-byte-cursor')
 
 module.exports = (feed, opts) => new HypercoreByteStream(feed, opts)
 
@@ -9,16 +10,13 @@ class HypercoreByteStream extends Readable {
     opts = opts || {}
 
     this.feed = null
-    this.bytesRead = 0
-    this.pending = true
+    this.cursor = null
 
-    this._range = null
-    this._downloadRange = null
-    this._offset = 0
+    this.bytesRead = 0
+    this._byteLength = -1
     this._opened = false
     this._resume = false
     this._ended = false
-    this._downloaded = false
 
     if (opts.feed) {
       this.start(opts)
@@ -30,95 +28,69 @@ class HypercoreByteStream extends Readable {
 
     assert(feed, 'Must provide a feed')
     assert(!this._opened, 'Cannot call start multiple after streaming has started.')
-    assert(!blockOffset || blockOffset >= 0, 'start must be >= 0')
-    assert(!blockLength || blockLength >= 0, 'end must be >= 0')
     assert(!byteLength || byteLength >= -1, 'length must be a positive integer or -1')
 
     this.feed = feed
     feed.on('close', this._cleanup.bind(this))
     feed.on('end', this._cleanup.bind(this))
 
-    this._range = {
-      start: blockOffset || 0,
-      end: (blockOffset && blockLength) ? blockOffset + blockLength : -1,
-      byteOffset: byteOffset || 0,
-      length: (byteLength !== undefined) ? byteLength : -1
-    }
+    this._byteLength = (byteLength !== undefined) ? byteLength : -1
+    this.cursor = new HypercoreByteCursor(this.feed, this._onSeek.bind(this), {
+      blockOffset,
+      blockLength,
+      byteOffset
+    })
 
     if (this._resume) {
       return this._read(0)
     }
   }
 
-  _open (size) {
-    let self = this
+  _onSeek({ start, end, position }, cb) {
     let missing = 1
+    let self = this
 
-    this._opened =  true
-    this.feed.ready(err => {
-      if (err || this.destroyed) return this.destroy(err)
-      this.open = true
-      this.feed.seek(this._range.byteOffset, this._range, onstart)
-    })
+    let downloadRange = self.feed.download({
+      start,
+      end,
+      linear: true
+    }, ondownload)
+
+    if (self._byteLength > -1) {
+      self.feed.seek(self._byteOffset + self._byteLength - 1, downloadRange, onend)
+    }
 
     function onend (err, index) {
-      if (err || !self._range) return
-      if (self._ended || self.destroyed) return
+      if (err || !self._range) return cb(err)
+      if (self._ended || self.destroyed) return cb(err)
       missing++
 
-      self.feed.undownload(self._downloadRange)
+      self.feed.undownload(downloadRange)
 
-      self._downloadRange = self.feed.download({
-        start: self._range.start,
+      downloadRange = self.feed.download({
+        start: downloadRange.start,
         end: index,
         linear: true
       }, ondownload)
-
-      self._range = { 
-        ...self._range,
-        ...self._downloadRange
-      }
-
-      self.pending = false
-      self._read(size)
-    }
-
-    function onstart (err, index, off) {
-      if (err) return cb(err)
-      if (self._ended || self.destroyed) return
-
-      self._range.start = index
-      self._offset = off
-
-      self._downloadRange = self.feed.download({
-        ...self._range,
-        linear: true
-      }, ondownload)
-
-      self._range = {
-        ...self._range,
-        ...self._downloadRange
-      }
-
-      if (self._range.length > -1) {
-        self.feed.seek(self._range.byteOffset + self._range.length - 1, self._range, onend)
-      } else {
-        self.pending = false
-        self._read(size)
-      }
     }
 
     function ondownload (err) {
       if (--missing) return
-      if (err && !self._ended && !self._downloaded && err.code !== 'ECANCELED') self.destroy(err)
-      else self._downloaded = true
+      if (err && !self._ended && !self._downloaded && err.code !== 'ECANCELED') return cb(err)
+      return cb(null)
     }
   }
 
+  _open (size) {
+    let self = this
+    this._opened =  true
+    this.cursor.seek(0)
+    return this._read(size)
+  }
+
   _cleanup () {
-    if (this._range && this._opened) {
-      this.feed.undownload(this._range)
-      this._range = null
+    if (this._opened) {
+      this.cursor.close()
       this._ended = true
     }
   }
@@ -129,10 +101,10 @@ class HypercoreByteStream extends Readable {
   }
 
   _read (size) {
-    if (!this._range) {
+    if (!this.cursor) {
       this._resume = true
       return
-    } else if (this._resume) {
+    } else if (this.cursor) {
       this._resume = false
     }
 
@@ -141,20 +113,15 @@ class HypercoreByteStream extends Readable {
       return this._open(size)
     }
 
-    if (this._range.end !== -1 && this._range.start > this._range.end || this._range.length === 0) {
-      return this.push(null)
-    }
-
-    this.feed.get(this._range.start++, { wait: !this._downloaded }, (err, data) => {
+    this.cursor.next((err, data) => {
       if (err || this.destroyed) return this.destroy(err)
-      if (this._offset) data = data.slice(offset)
-      this._offset = 0
-      if (this._range.length > -1) {
-        if (this._range.length < data.length) data = data.slice(0, this._range.length)
-        this._range.length -= data.length
-      }
       if (!data) {
         this._cleanup()
+        return this.push(null)
+      }
+      if (this._byteLength > -1) {
+        if (this._byteLength < data.length) data = data.slice(0, this._byteLength)
+        this._byteLength -= data.length
       }
       this.bytesRead += data.length
       this.push(data)
