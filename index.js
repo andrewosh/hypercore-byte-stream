@@ -35,9 +35,6 @@ class HypercoreByteStream extends Readable {
     assert(!byteLength || byteLength >= -1, 'length must be a positive integer or -1')
 
     this.feed = feed
-    feed.on('close', this._cleanup.bind(this))
-    feed.on('end', this._cleanup.bind(this))
-
     this._range = {
       start: blockOffset || 0,
       end: (blockOffset && blockLength) ? blockOffset + blockLength : -1,
