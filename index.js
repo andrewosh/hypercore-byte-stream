@@ -144,7 +144,7 @@ class HypercoreByteStream extends Readable {
 
     this.feed.get(this._range.start++, { wait: !this._downloaded }, (err, data) => {
       if (err || this.destroyed) return this.destroy(err)
-      if (this._offset) data = data.slice(offset)
+      if (this._offset) data = data.slice(this._offset)
       this._offset = 0
       if (this._range.length > -1) {
         if (this._range.length < data.length) data = data.slice(0, this._range.length)
