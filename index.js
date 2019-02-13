@@ -32,12 +32,12 @@ class HypercoreByteStream extends Readable {
     assert(!this._opened, 'Cannot call start multiple after streaming has started.')
     assert(!blockOffset || blockOffset >= 0, 'start must be >= 0')
     assert(!blockLength || blockLength >= 0, 'end must be >= 0')
-    assert(!byteLength || byteLength >= -1, 'length must be a positive integer or -1')
+    assert(!byteLength || byteLength >= 0, 'length must be a >= 0 or -1')
 
     this.feed = feed
     this._range = {
       start: blockOffset || 0,
-      end: (blockOffset && blockLength) ? blockOffset + blockLength : -1,
+      end: (blockOffset && (blockLength !== undefined)) ? blockOffset + blockLength : -1,
       byteOffset: byteOffset || 0,
       length: (byteLength !== undefined) ? byteLength : -1
     }
@@ -81,7 +81,7 @@ class HypercoreByteStream extends Readable {
     }
 
     function onstart (err, index, off) {
-      if (err) return cb(err)
+      if (err) return self.destroy(err)
       if (self._ended || self.destroyed) return
 
       self._range.start = index
@@ -134,11 +134,13 @@ class HypercoreByteStream extends Readable {
     }
 
     if (this._ended) return this.push(null)
+    if (this._range.length === 0) return this.push(null)
+
     if (!this._opened) {
       return this._open(size)
     }
 
-    if (this._range.end !== -1 && this._range.start > this._range.end || this._range.length === 0) {
+    if ((this._range.end !== -1 && this._range.start > this._range.end) || this._range.length === 0) {
       return this.push(null)
     }
 
