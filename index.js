@@ -32,14 +32,15 @@ class HypercoreByteStream extends Readable {
     assert(!this._opened, 'Cannot call start multiple after streaming has started.')
     assert(!blockOffset || blockOffset >= 0, 'start must be >= 0')
     assert(!blockLength || blockLength >= 0, 'end must be >= 0')
-    assert(!byteLength || byteLength >= 0, 'length must be a >= 0 or -1')
+    assert(!byteLength || byteLength >= -1, 'length must be a >= 0 or -1')
+    assert((byteLength !== -1 && byteOffset !== -1) || byteLength === -1, 'byteLength requires byteOffset')
 
     this.feed = feed
     this._range = {
       start: blockOffset || 0,
-      end: (blockOffset && (blockLength !== undefined)) ? blockOffset + blockLength : -1,
+      end: ((blockOffset !== undefined) && (blockLength !== undefined)) ? blockOffset + blockLength : -1,
       byteOffset: byteOffset || 0,
-      length: (byteLength !== undefined) ? byteLength : -1
+      length: blockLength === 0 ? 0 : (byteLength !== undefined) ? byteLength : -1
     }
 
     if (this._resume) {
@@ -55,10 +56,11 @@ class HypercoreByteStream extends Readable {
     this.feed.ready(err => {
       if (err || this.destroyed) return this.destroy(err)
       this.open = true
+      if (this._range.byteOffset === -1) return onstart(null, this._range.start, 0)
       this.feed.seek(this._range.byteOffset, this._range, onstart)
     })
 
-    function onend (err, index) {
+    function onend (err, index, offset) {
       if (err || !self._range) return
       if (self._ended || self.destroyed) return
       missing++
@@ -67,11 +69,11 @@ class HypercoreByteStream extends Readable {
 
       self._downloadRange = self.feed.download({
         start: self._range.start,
-        end: index,
+        end: offset ? index + 1 : index, // if offset === 0 we should stop just before reading index
         linear: true
       }, ondownload)
 
-      self._range = { 
+      self._range = {
         ...self._range,
         ...self._downloadRange
       }
@@ -98,7 +100,7 @@ class HypercoreByteStream extends Readable {
       }
 
       if (self._range.length > -1) {
-        self.feed.seek(self._range.byteOffset + self._range.length - 1, self._range, onend)
+        self.feed.seek(self._range.byteOffset + self._range.length, self._range, onend)
       } else {
         self.pending = false
         self._read(size)
@@ -140,7 +142,7 @@ class HypercoreByteStream extends Readable {
       return this._open(size)
     }
 
-    if ((this._range.end !== -1 && this._range.start > this._range.end) || this._range.length === 0) {
+    if ((this._range.end !== -1 && this._range.start >= this._range.end) || this._range.length === 0) {
       return this.push(null)
     }
 
