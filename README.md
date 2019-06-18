@@ -1,4 +1,6 @@
 # hypercore-byte-stream
+[![Build Status](https://travis-ci.com/andrewosh/hypercore-byte-stream.svg?branch=master)](https://travis-ci.com/andrewosh/hypercore-byte-stream)
+
 A Readable stream wrapper around Hypercore that supports reading byte ranges.
 
 When provided with optional start/end block heuristics, this module will efficiently sync only those blocks which contain the specified range.
