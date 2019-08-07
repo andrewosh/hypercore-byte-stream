@@ -116,7 +116,10 @@ class HypercoreByteStream extends Readable {
 
   _cleanup () {
     if (this._range && this._opened) {
-      this.feed.undownload(this._range)
+      if (this._downloadRange) {
+        this.feed.undownload(this._downloadRange)
+        this._downloadRange = null
+      }
       this._range = null
       this._ended = true
     }
