@@ -22,7 +22,7 @@
   },
   "homepage": "https://github.com/andrewosh/hypercore-byte-stream#readme",
   "devDependencies": {
-    "hypercore": "^6.24.0",
+    "hypercore": "^9.1.0",
     "random-access-memory": "^3.1.1",
     "tape": "^4.9.2"
   },

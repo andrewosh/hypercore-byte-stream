@@ -33,8 +33,8 @@ function createRemote (numRecords, recordSize, cb) {
 
     let core2 = hypercore(ram, core1.key, { sparse: true })
 
-    let s1 = core1.replicate({ live: true })
-    s1.pipe(core2.replicate({ live: true })).pipe(s1)
+    let s1 = core1.replicate(true, { live: true })
+    s1.pipe(core2.replicate(false, { live: true })).pipe(s1)
 
     let stream = createStream()
     return cb(null, core1, core2, stream, records)

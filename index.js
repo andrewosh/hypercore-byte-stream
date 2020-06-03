@@ -139,13 +139,17 @@ class HypercoreByteStream extends Readable {
     }
 
     if (this._ended) return this.push(null)
-    if (this._range.length === 0) return this.push(null)
+    if (this._range.length === 0) {
+      this._cleanup()
+      return this.push(null)
+    }
 
     if (!this._opened) {
       return this._open(size)
     }
 
     if ((this._range.end !== -1 && this._range.start >= this._range.end) || this._range.length === 0) {
+      this._cleanup()
       return this.push(null)
     }
 

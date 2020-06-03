@@ -248,4 +248,62 @@ module.exports = function (tag, create) {
       })
     })
   })
+
+  test(`${tag}: _destroy is always called with empty ranges`, t => {
+    create(10, 100, (err, input, output, stream, records) => {
+      t.error(err, 'create stream ok')
+      stream.start({
+        feed: output,
+        byteOffset: 101,
+        byteLength: 99
+      })
+      stream.on('data', () => {})
+      stream.on('error', err => {
+        t.error(err)
+      })
+      const expectedSelections = output.sparse ? 0 : 1
+      stream.on('end', () => {
+        t.true(stream._ended)
+        t.false(stream._range)
+        t.same(output._selections.length, expectedSelections)
+        t.end()
+      })
+    })
+  })
+
+  test(`${tag}: _destroy always called for various ranges`, t => {
+    t.plan(3 * 7)
+
+    const byteRanges = [
+      [0, 0],
+      [0, 10],
+      [101, 150],
+      [900, -1],
+      [200, 300],
+      [350, 450],
+      [450, 750]
+    ]
+    for (const [byteStart, byteEnd] of byteRanges) {
+      testDestroy(byteStart, byteEnd)
+    }
+    function testDestroy (byteStart, byteEnd) {
+      create(10, 100, (err, input, output, stream, records) => {
+        stream.start({
+          feed: output,
+          byteOffset: 101,
+          byteLength: 99
+        })
+        stream.on('data', () => {})
+        stream.on('error', err => {
+          t.error(err)
+        })
+        const expectedSelections = output.sparse ? 0 : 1
+        stream.on('end', () => {
+          t.true(stream._ended)
+          t.false(stream._range)
+          t.same(output._selections.length, expectedSelections)
+        })
+      })
+    }
+  })
 }
