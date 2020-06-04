@@ -5,7 +5,7 @@ module.exports = (feed, opts) => new HypercoreByteStream(feed, opts)
 
 class HypercoreByteStream extends Readable {
   constructor (opts) {
-    super(opts)
+    super({ ...opts, encoding: null })
     opts = opts || {}
 
     this.feed = null
