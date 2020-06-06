@@ -25,7 +25,7 @@ class HypercoreByteStream extends Readable {
     }
   }
 
-  start ({ feed, blockOffset, blockLength, byteOffset, byteLength} = {}) {
+  start ({ feed, blockOffset, blockLength, byteOffset, byteLength } = {}) {
     assert(!this.feed, 'Can only provide options once (in the constructor, or asynchronously).')
 
     assert(feed, 'Must provide a feed')
@@ -50,14 +50,14 @@ class HypercoreByteStream extends Readable {
 
   _seek (offset, cb) {
     // end + 1 so we can support seeks to the end of the file
-    this.feed.seek(offset, { start: this._range.start, end: this._range.end + 1}, cb)
+    this.feed.seek(offset, { start: this._range.start, end: this._range.end + 1 }, cb)
   }
 
   _open (size) {
-    let self = this
+    const self = this
     let missing = 1
 
-    this._opened =  true
+    this._opened = true
     this.feed.ready(err => {
       if (err || this.destroyed) return this.destroy(err)
       this.open = true
