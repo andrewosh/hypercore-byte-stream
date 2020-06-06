@@ -48,6 +48,11 @@ class HypercoreByteStream extends Readable {
     }
   }
 
+  _seek (offset, cb) {
+    // end + 1 so we can support seeks to the end of the file
+    this.feed.seek(offset, { start: this._range.start, end: this._range.end + 1}, cb)
+  }
+
   _open (size) {
     let self = this
     let missing = 1
@@ -57,7 +62,7 @@ class HypercoreByteStream extends Readable {
       if (err || this.destroyed) return this.destroy(err)
       this.open = true
       if (this._range.byteOffset === -1) return onstart(null, this._range.start, 0)
-      this.feed.seek(this._range.byteOffset, this._range, onstart)
+      this._seek(this._range.byteOffset, onstart)
     })
 
     function onend (err, index, offset) {
@@ -100,7 +105,7 @@ class HypercoreByteStream extends Readable {
       }
 
       if (self._range.length > -1) {
-        self.feed.seek(self._range.byteOffset + self._range.length, self._range, onend)
+        self._seek(self._range.byteOffset + self._range.length, onend)
       } else {
         self.pending = false
         self._read(size)
