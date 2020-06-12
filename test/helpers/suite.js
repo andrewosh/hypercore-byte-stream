@@ -264,7 +264,7 @@ module.exports = function (tag, create) {
       stream.on('end', () => {
         t.true(stream._ended)
         t.false(stream._range)
-        t.same(output._selections.length, expectedSelections)
+        if (output._selections) t.same(output._selections.length, expectedSelections)
         t.end()
       })
     })
@@ -300,7 +300,8 @@ module.exports = function (tag, create) {
         stream.on('end', () => {
           t.true(stream._ended)
           t.false(stream._range)
-          t.same(output._selections.length, expectedSelections)
+          if (output._selections) t.same(output._selections.length, expectedSelections)
+          else t.pass()
         })
       })
     }
