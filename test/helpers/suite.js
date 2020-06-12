@@ -2,7 +2,6 @@ const test = require('tape')
 
 module.exports = function (tag, create) {
   test(`${tag}: stream entire feed`, t => {
-    t.plan(1 + 10)
     create(10, 100, (err, input, output, stream, records) => {
       t.error(err, 'create stream ok')
       const combined = Buffer.concat(records, 1000)
@@ -15,7 +14,9 @@ module.exports = function (tag, create) {
       stream.on('data', data => {
         t.same(data, combined.slice(offset, offset + data.length), 'chunks are the same')
         offset += data.length
+        if (offset === combined.length) stream.destroy()
       })
+      stream.on('close', () => t.end())
       stream.on('error', err => {
         t.error(err)
       })
@@ -23,7 +24,6 @@ module.exports = function (tag, create) {
   })
 
   test(`${tag}: stream with byteOffset, no length, no bounds`, t => {
-    t.plan(1 + 8)
     create(10, 100, (err, input, output, stream, records) => {
       t.error(err, 'create stream ok')
       const combined = Buffer.concat(records.slice(2), 800)
@@ -37,7 +37,9 @@ module.exports = function (tag, create) {
       stream.on('data', data => {
         t.same(data, combined.slice(offset, offset + data.length), 'chunks are the same')
         offset += data.length
+        if (offset === combined.length) stream.destroy()
       })
+      stream.on('close', () => t.end())
       stream.on('error', err => {
         t.error(err)
       })
@@ -45,7 +47,6 @@ module.exports = function (tag, create) {
   })
 
   test(`${tag}: stream with byteOffset, length, no bounds`, t => {
-    t.plan(1 + 2)
     create(10, 100, (err, input, output, stream, records) => {
       t.error(err, 'create stream ok')
       const combined = Buffer.concat(records.slice(5), 500)
@@ -62,6 +63,10 @@ module.exports = function (tag, create) {
         t.same(data, combined.slice(offset, offset + data.length), 'chunks are the same')
         offset += data.length
       })
+      stream.on('end', () => {
+        t.same(offset, 50)
+        t.end()
+      })
       stream.on('error', err => {
         t.error(err)
       })
@@ -69,7 +74,6 @@ module.exports = function (tag, create) {
   })
 
   test(`${tag}: stream with byteOffset, length, start bound`, t => {
-    t.plan(1 + 2)
     create(10, 100, (err, input, output, stream, records) => {
       t.error(err, 'create stream ok')
       const combined = Buffer.concat(records.slice(5), 500)
@@ -87,6 +91,10 @@ module.exports = function (tag, create) {
         t.same(data, combined.slice(offset, offset + data.length), 'chunks are the same')
         offset += data.length
       })
+      stream.on('end', () => {
+        t.same(offset, 50)
+        t.end()
+      })
       stream.on('error', err => {
         t.error(err)
       })
@@ -94,7 +102,6 @@ module.exports = function (tag, create) {
   })
 
   test(`${tag}: stream with byteOffset, length, start and end bounds`, t => {
-    t.plan(1 + 2)
     create(10, 100, (err, input, output, stream, records) => {
       t.error(err, 'create stream ok')
       const combined = Buffer.concat(records.slice(5), 500)
@@ -112,6 +119,10 @@ module.exports = function (tag, create) {
         t.same(data.length, 50)
         t.same(data, combined.slice(offset, offset + data.length), 'chunks are the same')
         offset += data.length
+      })
+      stream.on('end', () => {
+        t.same(offset, 50)
+        t.end()
       })
       stream.on('error', err => {
         t.error(err)
@@ -162,14 +173,18 @@ module.exports = function (tag, create) {
       }, 100)
 
       let offset = 0
+      let destroyed = false
       stream.on('data', data => {
+        if (destroyed) return
         if (offset >= 500) {
           t.same(data, newData.slice(0, data.length))
-          return t.end()
+          destroyed = true
+          return stream.destroy()
         }
         t.same(data, combined.slice(offset, offset + data.length), 'chunks are the same')
         offset += data.length
       })
+      stream.on('close', () => t.end())
       stream.on('error', err => {
         t.error(err)
       })
