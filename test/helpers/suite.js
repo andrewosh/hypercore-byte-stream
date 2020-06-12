@@ -210,6 +210,7 @@ module.exports = function (tag, create) {
           })
           t.fail('called start after streaming')
         } catch (err) {
+          stream.destroy()
           t.true(err)
         }
       })

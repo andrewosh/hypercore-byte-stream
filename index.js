@@ -27,7 +27,6 @@ class HypercoreByteStream extends Readable {
 
   start ({ feed, blockOffset, blockLength, byteOffset, byteLength } = {}) {
     assert(!this.feed, 'Can only provide options once (in the constructor, or asynchronously).')
-
     assert(feed, 'Must provide a feed')
     assert(!this._opened, 'Cannot call start multiple after streaming has started.')
     assert(!blockOffset || blockOffset >= 0, 'start must be >= 0')
