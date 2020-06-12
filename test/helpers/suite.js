@@ -177,13 +177,14 @@ module.exports = function (tag, create) {
   })
 
   test(`${tag}: reads will be resumed after start`, t => {
-    t.plan(2)
     create(10, 100, (err, input, output, stream, records) => {
       t.error(err, 'create stream ok')
 
       stream.once('data', data => {
         t.true(data)
+        stream.destroy()
       })
+      stream.on('close', () => t.end())
 
       setTimeout(() => {
         stream.start({
