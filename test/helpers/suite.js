@@ -164,7 +164,8 @@ module.exports = function (tag, create) {
       stream.start({
         feed: output,
         byteOffset: 500,
-        byteLength: 700
+        byteLength: 700,
+        ifAvailable: false
       })
 
       var newData = Buffer.allocUnsafe(1000).fill(8)
@@ -317,8 +318,12 @@ module.exports = function (tag, create) {
         stream.on('end', () => {
           t.true(stream._ended)
           t.false(stream._range)
-          if (output._selections) t.same(output._selections.length, expectedSelections)
-          else t.pass()
+          if (output._selections) {
+            t.same(output._selections.length, expectedSelections) 
+          } else {
+            console.log('PASSING')
+            t.pass()
+          }
         })
       })
     }

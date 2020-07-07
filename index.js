@@ -19,13 +19,14 @@ class HypercoreByteStream extends Readable {
     this._resume = false
     this._ended = false
     this._downloaded = false
+    this._ifAvailable = false
 
     if (opts.feed) {
       this.start(opts)
     }
   }
 
-  start ({ feed, blockOffset, blockLength, byteOffset, byteLength } = {}) {
+  start ({ feed, blockOffset, blockLength, byteOffset, byteLength, ifAvailable } = {}) {
     assert(!this.feed, 'Can only provide options once (in the constructor, or asynchronously).')
     assert(feed, 'Must provide a feed')
     assert(!this._opened, 'Cannot call start multiple after streaming has started.')
@@ -35,6 +36,7 @@ class HypercoreByteStream extends Readable {
     assert((byteLength !== -1 && byteOffset !== -1) || byteLength === -1, 'byteLength requires byteOffset')
 
     this.feed = feed
+    this._ifAvailable = ifAvailable
     this._range = {
       start: blockOffset || 0,
       end: ((blockOffset !== undefined) && (blockLength !== undefined)) ? blockOffset + blockLength : -1,
@@ -49,7 +51,7 @@ class HypercoreByteStream extends Readable {
 
   _seek (offset, cb) {
     // end + 1 so we can support seeks to the end of the file
-    this.feed.seek(offset, { start: this._range.start, end: this._range.end + 1 }, cb)
+    this.feed.seek(offset, { start: this._range.start, end: this._range.end + 1, ifAvailable: this._ifAvailable }, cb)
   }
 
   _open (size) {
@@ -157,7 +159,7 @@ class HypercoreByteStream extends Readable {
       return this.push(null)
     }
 
-    this.feed.get(this._range.start++, { wait: !this._downloaded }, (err, data) => {
+    this.feed.get(this._range.start++, { ifAvailable: this._ifAvailable, wait: !this._downloaded }, (err, data) => {
       if (err || this.destroyed) return this.destroy(err)
       if (this._offset) data = data.slice(this._offset)
       this._offset = 0
