@@ -1,6 +1,6 @@
 {
   "name": "hypercore-byte-stream",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "A Readable stream wrapper around Hypercore that supports reading byte ranges.",
   "main": "index.js",
   "scripts": {
