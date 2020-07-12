@@ -321,7 +321,6 @@ module.exports = function (tag, create) {
           if (output._selections) {
             t.same(output._selections.length, expectedSelections) 
           } else {
-            console.log('PASSING')
             t.pass()
           }
         })
